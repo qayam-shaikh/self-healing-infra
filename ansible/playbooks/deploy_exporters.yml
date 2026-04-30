@@ -1,0 +1,76 @@
+- name: Deploy Prometheus exporters
+  hosts: nodes
+  become: true
+
+  vars:
+    node_exporter_version: "1.8.1"
+
+  tasks:
+
+  - name: Install dependencies
+    ansible.builtin.apt:
+      name: wget
+      state: present
+      update_cache: yes
+
+  # ---------------- NODE EXPORTER ----------------
+  - name: Download node_exporter
+    ansible.builtin.get_url:
+      url: https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+      dest: /tmp/node_exporter.tar.gz
+
+  - name: Extract node_exporter
+    ansible.builtin.unarchive:
+      src: /tmp/node_exporter.tar.gz
+      dest: /opt/
+      remote_src: yes
+
+  - name: Run node_exporter
+    ansible.builtin.shell: |
+      nohup /opt/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter \
+      --web.listen-address=":9100" > /tmp/node_exporter.log 2>&1 &
+    args:
+      creates: /tmp/node_exporter.log
+
+  # ---------------- NGINX EXPORTER ----------------
+  - name: Install nginx exporter
+    ansible.builtin.shell: |
+      docker run -d --name nginx-exporter \
+      -p 9113:9113 \
+      nginx/nginx-prometheus-exporter:latest \
+      -nginx.scrape-uri http://localhost/nginx_status
+    when: inventory_hostname == "node-nginx"
+    ignore_errors: yes
+
+  # ---------------- POSTGRES EXPORTER ----------------
+  - name: Install postgres exporter
+    ansible.builtin.shell: |
+      docker run -d --name postgres-exporter \
+      -p 9187:9187 \
+      -e DATA_SOURCE_NAME="postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable" \
+      quay.io/prometheuscommunity/postgres-exporter
+    when: inventory_hostname == "node-postgres"
+    ignore_errors: yes
+
+  # ---------------- APP EXPORTER ----------------
+  - name: Create simple app exporter
+    ansible.builtin.copy:
+      dest: /opt/app_exporter.py
+      content: |
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"app_up 1\n")
+
+        HTTPServer(('', 8000), Handler).serve_forever()
+    when: inventory_hostname == "node-app"
+
+  - name: Run app exporter
+    ansible.builtin.shell: |
+      nohup python3 /opt/app_exporter.py > /tmp/app_exporter.log 2>&1 &
+    args:
+      creates: /tmp/app_exporter.log
+    when: inventory_hostname == "node-app"

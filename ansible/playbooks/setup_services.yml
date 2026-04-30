@@ -1,0 +1,37 @@
+- name: Install services on nodes
+  hosts: nodes
+  become: true
+
+  tasks:
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install Nginx on node-nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+      when: inventory_hostname == "node-nginx"
+
+    - name: Install PostgreSQL on node-postgres
+      ansible.builtin.apt:
+        name: postgresql
+        state: present
+      when: inventory_hostname == "node-postgres"
+
+    - name: Install Python app dependencies on node-app
+      ansible.builtin.apt:
+        name: python3
+        state: present
+      when: inventory_hostname == "node-app"
+
+    - name: Start Nginx
+      ansible.builtin.shell: |
+        service nginx start
+      when: inventory_hostname == "node-nginx"
+
+    - name: Start PostgreSQL
+      ansible.builtin.shell: |
+        service postgresql start
+      when: inventory_hostname == "node-postgres"

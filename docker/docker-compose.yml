@@ -1,0 +1,67 @@
+version: "3.9"
+
+networks:
+  self-healing-net:
+    external: true
+
+services:
+
+  node-nginx:
+    build: ./nodes
+    container_name: node-nginx
+    networks:
+      self-healing-net:
+        ipv4_address: 172.20.0.10
+    mem_limit: 128m
+    cpus: 0.3
+
+  node-postgres:
+    build: ./nodes
+    container_name: node-postgres
+    networks:
+      self-healing-net:
+        ipv4_address: 172.20.0.11
+    mem_limit: 128m
+    cpus: 0.3
+
+  node-app:
+    build: ./nodes
+    container_name: node-app
+    networks:
+      self-healing-net:
+        ipv4_address: 172.20.0.12
+    mem_limit: 128m
+    cpus: 0.3
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      self-healing-net:
+        ipv4_address: 172.20.0.20
+    mem_limit: 256m
+    cpus: 0.5
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      self-healing-net:
+        ipv4_address: 172.20.0.21
+    mem_limit: 128m
+    cpus: 0.3
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      self-healing-net:
+        ipv4_address: 172.20.0.22
+    mem_limit: 256m
+    cpus: 0.5

@@ -33,24 +33,76 @@
       creates: /tmp/node_exporter.log
 
   # ---------------- NGINX EXPORTER ----------------
-  - name: Install nginx exporter
-    ansible.builtin.shell: |
-      docker run -d --name nginx-exporter \
-      -p 9113:9113 \
-      nginx/nginx-prometheus-exporter:latest \
-      -nginx.scrape-uri http://localhost/nginx_status
+  - name: Download nginx exporter
+    ansible.builtin.get_url:
+      url: https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/v1.3.0/nginx-prometheus-exporter_1.3.0_linux_amd64.tar.gz
+      dest: /tmp/nginx_exporter.tar.gz
     when: inventory_hostname == "node-nginx"
-    ignore_errors: yes
+
+  - name: Extract nginx exporter
+    ansible.builtin.unarchive:
+      src: /tmp/nginx_exporter.tar.gz
+      dest: /opt/
+      remote_src: yes
+    when: inventory_hostname == "node-nginx"
+
+  - name: Run nginx exporter
+    ansible.builtin.shell: |
+      nohup /opt/nginx-prometheus-exporter \
+      -nginx.scrape-uri http://localhost/nginx_status \
+      > /tmp/nginx_exporter.log 2>&1 &
+    args:
+      creates: /tmp/nginx_exporter.log
+    when: inventory_hostname == "node-nginx"
 
   # ---------------- POSTGRES EXPORTER ----------------
-  - name: Install postgres exporter
+  - name: Set postgres password
     ansible.builtin.shell: |
-      docker run -d --name postgres-exporter \
-      -p 9187:9187 \
-      -e DATA_SOURCE_NAME="postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable" \
-      quay.io/prometheuscommunity/postgres-exporter
+      sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
     when: inventory_hostname == "node-postgres"
-    ignore_errors: yes
+
+  - name: Ensure postgres is listening on localhost
+    ansible.builtin.lineinfile:
+      path: /etc/postgresql/14/main/postgresql.conf
+      regexp: '^#?listen_addresses'
+      line: "listen_addresses = 'localhost'"
+    when: inventory_hostname == "node-postgres"
+
+  - name: Allow md5 authentication
+    ansible.builtin.lineinfile:
+      path: /etc/postgresql/14/main/pg_hba.conf
+      regexp: '^host\s+all\s+all\s+127.0.0.1/32'
+      line: "host all all 127.0.0.1/32 md5"
+    when: inventory_hostname == "node-postgres"
+
+  - name: Restart PostgreSQL
+    ansible.builtin.shell: service postgresql restart
+    when: inventory_hostname == "node-postgres"
+
+  - name: Download postgres exporter
+    ansible.builtin.get_url:
+      url: https://github.com/prometheus-community/postgres_exporter/releases/download/v0.15.0/postgres_exporter-0.15.0.linux-amd64.tar.gz
+      dest: /tmp/postgres_exporter.tar.gz
+    when: inventory_hostname == "node-postgres"
+
+  - name: Extract postgres exporter
+    ansible.builtin.unarchive:
+      src: /tmp/postgres_exporter.tar.gz
+      dest: /opt/
+      remote_src: yes
+    when: inventory_hostname == "node-postgres"
+
+  - name: Kill old postgres exporter
+    ansible.builtin.shell: pkill -f postgres_exporter
+    ignore_errors: true
+    when: inventory_hostname == "node-postgres"
+
+  - name: Run postgres exporter
+    ansible.builtin.shell: |
+      DATA_SOURCE_NAME="postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable" \
+      nohup /opt/postgres_exporter-0.15.0.linux-amd64/postgres_exporter \
+      > /tmp/postgres_exporter.log 2>&1 &
+    when: inventory_hostname == "node-postgres"
 
   # ---------------- APP EXPORTER ----------------
   - name: Create simple app exporter

@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+
+  # ---------------------------
+  # Node Exporter (ALL nodes)
+  # ---------------------------
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - 172.20.0.10:9100   # node-nginx
+          - 172.20.0.11:9100   # node-postgres
+          - 172.20.0.12:9100   # node-app
+
+  # ---------------------------
+  # Nginx Exporter
+  # ---------------------------
+  - job_name: 'nginx'
+    static_configs:
+      - targets:
+          - 172.20.0.10:9113
+
+  # ---------------------------
+  # Postgres Exporter
+  # ---------------------------
+  - job_name: 'postgres'
+    static_configs:
+      - targets:
+          - 172.20.0.11:9187
+
+  # ---------------------------
+  # App Exporter
+  # ---------------------------
+  - job_name: 'app'
+    static_configs:
+      - targets:
+          - 172.20.0.12:8000

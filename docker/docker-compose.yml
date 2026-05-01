@@ -41,6 +41,8 @@ services:
     networks:
       self-healing-net:
         ipv4_address: 172.20.0.20
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     mem_limit: 256m
     cpus: 0.5
 

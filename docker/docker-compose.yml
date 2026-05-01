@@ -43,6 +43,7 @@ services:
         ipv4_address: 172.20.0.20
     volumes:
       - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../prometheus/rules:/etc/prometheus/rules
     mem_limit: 256m
     cpus: 0.5
 
@@ -54,6 +55,8 @@ services:
     networks:
       self-healing-net:
         ipv4_address: 172.20.0.21
+    volumes:
+      - ../prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml
     mem_limit: 128m
     cpus: 0.3
 
